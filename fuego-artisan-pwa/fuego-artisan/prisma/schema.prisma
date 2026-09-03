@@ -1,0 +1,124 @@
+// Schema pronto para Vercel Postgres / Neon / Supabase.
+// Defina DATABASE_URL nas env vars do projeto (ver README).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Category {
+  id        String    @id @default(cuid())
+  name      String
+  slug      String    @unique
+  icon      String?
+  order     Int       @default(0)
+  products  Product[]
+}
+
+model Product {
+  id            String       @id @default(cuid())
+  name          String
+  description   String
+  price         Int          // em centavos
+  imageUrl      String
+  badge         String?
+  badgeColor    String?
+  prepTimeMin   Int          @default(20)
+  prepTimeMax   Int          @default(30)
+  rating        Float        @default(4.8)
+  ratingCount   Int          @default(0)
+  featured      Boolean      @default(false)
+  active        Boolean      @default(true)
+  stock         Int          @default(999)
+  category      Category?    @relation(fields: [categoryId], references: [id])
+  categoryId    String?
+  cartItems     CartItem[]
+  orderItems    OrderItem[]
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+}
+
+model Customer {
+  id            String          @id @default(cuid())
+  guestToken    String          @unique
+  name          String?
+  phone         String?
+  address       String?
+  createdAt     DateTime        @default(now())
+  cartItems     CartItem[]
+  orders        Order[]
+  loyalty       LoyaltyAccount?
+}
+
+model CartItem {
+  id          String   @id @default(cuid())
+  customer    Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  customerId  String
+  product     Product  @relation(fields: [productId], references: [id])
+  productId   String
+  quantity    Int      @default(1)
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([customerId, productId])
+}
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  PREPARING
+  OUT_FOR_DELIVERY
+  DELIVERED
+  CANCELLED
+}
+
+model Order {
+  id          String      @id @default(cuid())
+  customer    Customer    @relation(fields: [customerId], references: [id])
+  customerId  String
+  items       OrderItem[]
+  status      OrderStatus @default(PENDING)
+  subtotal    Int
+  deliveryFee Int         @default(0)
+  total       Int
+  address     String?
+  notes       String?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+}
+
+model OrderItem {
+  id          String  @id @default(cuid())
+  order       Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderId     String
+  product     Product @relation(fields: [productId], references: [id])
+  productId   String
+  quantity    Int
+  unitPrice   Int
+  notes       String?
+}
+
+model LoyaltyAccount {
+  id           String          @id @default(cuid())
+  customer     Customer        @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  customerId   String          @unique
+  stamps       Int             @default(0)
+  tier         String          @default("Cinza & Fogo")
+  freeRewards  Int             @default(0)
+  history      LoyaltyEvent[]
+  updatedAt    DateTime        @updatedAt
+}
+
+model LoyaltyEvent {
+  id          String         @id @default(cuid())
+  account     LoyaltyAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  accountId   String
+  type        String         // "STAMP" | "REDEEM"
+  orderId     String?
+  createdAt   DateTime       @default(now())
+}
