@@ -9,9 +9,8 @@ const withPWA = require("next-pwa")({
 const nextConfig = {
   reactStrictMode: true,
   images: {
-    remotePatterns: [
-      { protocol: "https", hostname: "lh3.googleusercontent.com" },
-    ],
+    // Sem remotePatterns desnecessários: as fotos agora são locais
+    // (public/images/products) e nunca dependem de link externo.
   },
 };
 

@@ -3,10 +3,12 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "node scripts/ensure-db.mjs && next dev",
     "build": "prisma generate && next build",
     "start": "next start",
     "postinstall": "prisma generate",
+    "db:setup": "prisma generate --schema prisma/schema.local.prisma && DATABASE_URL=\"file:./dev.db\" prisma db push --schema prisma/schema.local.prisma && DATABASE_URL=\"file:./dev.db\" tsx prisma/seed.ts",
+    "db:setup:pg": "prisma generate && prisma db push && tsx prisma/seed.ts",
     "db:push": "prisma db push",
     "db:seed": "tsx prisma/seed.ts",
     "db:studio": "prisma studio"

@@ -1,15 +1,17 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/dist/ScrollTrigger";
 import { useApp, formatBRL, Product } from "./AppContext";
+import ImageWithFallback from "./ImageWithFallback";
 
 gsap.registerPlugin(ScrollTrigger);
 
 export default function ProductCard({ product, index }: { product: Product; index: number }) {
   const ref = useRef<HTMLElement>(null);
   const { addToCart } = useApp();
+  const [adding, setAdding] = useState(false);
 
   useEffect(() => {
     if (!ref.current) return;
@@ -34,6 +36,15 @@ export default function ProductCard({ product, index }: { product: Product; inde
     return () => ctx.revert();
   }, [index]);
 
+  const soldOut = product.stock <= 0;
+
+  const handleAdd = async () => {
+    if (soldOut || adding) return;
+    setAdding(true);
+    await addToCart(product.id);
+    setAdding(false);
+  };
+
   return (
     <article
       ref={ref}
@@ -48,6 +59,11 @@ export default function ProductCard({ product, index }: { product: Product; inde
                   {product.badge}
                 </span>
               )}
+              {soldOut && (
+                <span className="px-2 py-0.5 text-[9px] font-bold uppercase rounded tracking-wider bg-error/10 text-error border border-error/40">
+                  Esgotado
+                </span>
+              )}
             </div>
             <h3 className="font-headline-md text-headline-md text-on-surface font-bold leading-snug">
               {product.name}
@@ -60,16 +76,21 @@ export default function ProductCard({ product, index }: { product: Product; inde
             </span>
             <button
               aria-label={`Adicionar ${product.name}`}
-              onClick={() => addToCart(product.id)}
-              className="w-10 h-10 rounded-full bg-primary-container text-white flex items-center justify-center hover:bg-[#FF8C00] active:scale-95 transition-all shadow-md"
+              onClick={handleAdd}
+              disabled={soldOut || adding}
+              className="w-10 h-10 rounded-full bg-primary-container text-white flex items-center justify-center hover:bg-[#FF8C00] active:scale-95 transition-all shadow-md disabled:opacity-40 disabled:cursor-not-allowed"
             >
-              <span className="material-symbols-outlined text-[20px]">add</span>
+              <span className="material-symbols-outlined text-[20px]">
+                {adding ? "progress_activity" : "add"}
+              </span>
             </button>
           </div>
         </div>
-        <div className="w-32 h-36 shrink-0 relative rounded-xl overflow-hidden self-center border border-white/10">
-          <img className="w-full h-full object-cover" src={product.imageUrl} alt={product.name} />
-        </div>
+        <ImageWithFallback
+          src={product.imageUrl}
+          alt={product.name}
+          className="w-32 h-36 shrink-0 rounded-xl border border-white/10 self-center"
+        />
       </div>
     </article>
   );

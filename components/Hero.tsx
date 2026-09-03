@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/dist/ScrollTrigger";
 import SplitReveal from "./SplitReveal";
+import ImageWithFallback from "./ImageWithFallback";
 import { useApp, formatBRL, Product } from "./AppContext";
 
 gsap.registerPlugin(ScrollTrigger);
@@ -13,6 +14,7 @@ export default function Hero({ product }: { product: Product | null }) {
   const imageWrapRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
   const { addToCart } = useApp();
+  const [adding, setAdding] = useState(false);
 
   useEffect(() => {
     if (!imageWrapRef.current || !imgRef.current) return;
@@ -54,6 +56,15 @@ export default function Hero({ product }: { product: Product | null }) {
     );
   }
 
+  const soldOut = product.stock <= 0;
+
+  const handleAdd = async () => {
+    if (soldOut || adding) return;
+    setAdding(true);
+    await addToCart(product.id);
+    setAdding(false);
+  };
+
   return (
     <section className="relative mt-2" ref={sectionRef}>
       <div className="relative w-full rounded-2xl overflow-hidden glass-panel-rim p-4 pt-5 amber-glow">
@@ -90,11 +101,13 @@ export default function Hero({ product }: { product: Product | null }) {
         </div>
 
         <div className="relative w-full h-64 my-2 flex items-center justify-center reveal-mask rounded-xl" ref={imageWrapRef}>
-          <img
-            ref={imgRef}
-            className="w-full h-full object-cover rounded-xl shadow-2xl scale-110"
+          <ImageWithFallback
             src={product.imageUrl}
             alt={product.name}
+            eager
+            imgRef={imgRef}
+            className="w-full h-full rounded-xl shadow-2xl"
+            imgClassName="scale-110"
           />
           <div className="absolute bottom-3 left-3 bg-surface-container-lowest/85 backdrop-blur-md border border-white/15 px-3 py-1.5 rounded-lg flex items-center gap-2">
             <span className="material-symbols-outlined text-primary text-[16px]">schedule</span>
@@ -118,11 +131,14 @@ export default function Hero({ product }: { product: Product | null }) {
             </span>
           </div>
           <button
-            onClick={() => addToCart(product.id)}
-            className="cta-pulse flex-1 h-[54px] rounded-xl bg-gradient-to-r from-primary-container to-[#FF8C00] text-white font-headline-md text-title-sm flex items-center justify-center gap-2 font-bold amber-glow-intense active:scale-[0.98] transition-transform"
+            onClick={handleAdd}
+            disabled={soldOut || adding}
+            className="cta-pulse flex-1 h-[54px] rounded-xl bg-gradient-to-r from-primary-container to-[#FF8C00] text-white font-headline-md text-title-sm flex items-center justify-center gap-2 font-bold amber-glow-intense active:scale-[0.98] transition-transform disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <span className="material-symbols-outlined text-[20px]">bolt</span>
-            Pedir Edição Limitada
+            <span className="material-symbols-outlined text-[20px]">
+              {adding ? "progress_activity" : soldOut ? "block" : "bolt"}
+            </span>
+            {soldOut ? "Esgotado" : adding ? "Adicionando..." : "Pedir Edição Limitada"}
           </button>
         </div>
       </div>
