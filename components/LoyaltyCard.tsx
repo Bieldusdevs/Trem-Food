@@ -1,14 +1,35 @@
 "use client";
 
+import { useState } from "react";
 import { useApp } from "./AppContext";
 
 export default function LoyaltyCard() {
-  const { loyalty } = useApp();
+  const { loyalty, refreshLoyalty, notify } = useApp();
+  const [redeeming, setRedeeming] = useState(false);
 
   const total = loyalty?.stampsPerReward ?? 5;
   const filled = loyalty?.stampsInCycle ?? 0;
   const rewardsAvailable = loyalty?.freeRewards ?? 0;
   const remaining = loyalty ? total - filled : total;
+
+  const handleRedeem = async () => {
+    if (redeeming || rewardsAvailable < 1) return;
+    setRedeeming(true);
+    try {
+      const res = await fetch("/api/loyalty", { method: "POST" });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        await refreshLoyalty();
+        notify(data?.message ?? "Recompensa resgatada com sucesso!");
+      } else {
+        notify(data?.error ?? "Não foi possível resgatar a recompensa.", "error");
+      }
+    } catch {
+      notify("Falha de conexão com o servidor.", "error");
+    } finally {
+      setRedeeming(false);
+    }
+  };
 
   return (
     <section className="space-y-space-sm pb-6">
@@ -78,10 +99,23 @@ export default function LoyaltyCard() {
             <span className="material-symbols-outlined text-[16px] text-tertiary">verified</span>
             Benefícios VIP Ativos
           </div>
-          <button className="font-label-md text-label-md font-bold text-primary hover:text-white transition-colors flex items-center gap-1">
-            Ver Regras
-            <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
-          </button>
+          {rewardsAvailable > 0 ? (
+            <button
+              onClick={handleRedeem}
+              disabled={redeeming}
+              className="font-label-md text-label-md font-bold text-primary hover:text-white transition-colors flex items-center gap-1 disabled:opacity-50"
+            >
+              {redeeming ? "Resgatando..." : "Resgatar agora"}
+              <span className="material-symbols-outlined text-[14px]">
+                {redeeming ? "progress_activity" : "redeem"}
+              </span>
+            </button>
+          ) : (
+            <span className="font-label-md text-label-md text-outline flex items-center gap-1">
+              Ver Regras
+              <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
+            </span>
+          )}
         </div>
       </div>
     </section>

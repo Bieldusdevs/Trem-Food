@@ -1,79 +1,72 @@
 # FUEGO ARTISAN — PWA funcional (Next.js 14)
 
-App de pedidos completo, construído a partir do seu mockup: PWA instalável, backend real
-(API Routes + Prisma + Postgres), carrinho, checkout e Clube da Brasa (fidelidade) que
-realmente persistem no banco — nada é mockado. Animações com **GSAP + ScrollTrigger** e
-**Lenis** (scroll suave) conforme a stack pedida.
+App de pedidos completo: PWA instalável, backend real (API Routes + Prisma),
+carrinho, checkout e Clube da Brasa (fidelidade) que realmente persistem no
+banco — **nada é mockado**. Fotos de produtos são locais (`public/images/products`),
+então o cardápio nunca quebra por link externo.
 
-## O que está implementado de verdade
-
-- **Backend**: `app/api/products`, `app/api/cart`, `app/api/orders`, `app/api/loyalty` —
-  rotas reais lendo/escrevendo no Postgres via Prisma.
-- **Banco de dados**: schema Prisma (`prisma/schema.prisma`) com `Product`, `Category`,
-  `Customer`, `CartItem`, `Order`, `OrderItem`, `LoyaltyAccount`, `LoyaltyEvent`.
-- **Sessão de convidado**: cookie httpOnly identifica o cliente sem precisar de login,
-  já cria conta de fidelidade automaticamente.
-- **Carrinho persistente**: adicionar, atualizar quantidade e remover, tudo no banco.
-- **Checkout**: cria `Order` + `OrderItem`s numa transação, limpa o carrinho e **carimba
-  o Clube da Brasa automaticamente** (a cada 5 selos libera 1 recompensa grátis).
-- **PWA**: `manifest.json`, ícones, service worker gerado por `next-pwa` (instalável,
-  funciona offline para assets já visitados).
-- **Animações**:
-  - `SplitReveal.tsx` — texto do hero entrando letra por letra;
-  - `Hero.tsx` — imagem revelada por máscara (clip-path) + parallax no scroll;
-  - `ProductCard.tsx` — reveal dos cards conforme entram na viewport (ScrollTrigger);
-  - `SmoothScrollProvider.tsx` — Lenis sincronizado com o ticker do GSAP.
-
-## Rodando localmente
+## Rodando localmente (zero configuração)
 
 ```bash
 npm install
-cp .env.example .env.local   # cole sua DATABASE_URL
-npx prisma db push           # cria as tabelas
-npm run db:seed              # popula os 3 produtos do mockup
-npm run dev
+npm run dev        # cria o banco SQLite local e popula o cardápio automaticamente
 ```
 
-Abra http://localhost:3000
+Abra http://localhost:3000. Pronto — sem Postgres, sem variáveis de ambiente,
+sem comandos extras.
 
-## Deploy no Vercel (passo a passo)
+Para redefinir o banco do zero:
 
-1. **Crie o banco Postgres** (gratuito): no dashboard da Vercel → seu projeto →
-   aba **Storage** → **Create Database** → escolha **Postgres** (Neon). Isso já
-   gera a variável `DATABASE_URL` automaticamente no projeto.
-   - Alternativa: crie um banco grátis em [neon.tech](https://neon.tech) e cole a
-     connection string manualmente em **Settings → Environment Variables**.
+```bash
+cp .env.example .env.local   # opcional, já usa SQLite por padrão
+npm run db:setup             # cria tabelas + popula o cardápio
+```
 
-2. **Suba o código**:
+## O que está implementado de verdade
+
+- **Backend**: `app/api/products`, `app/api/cart`, `app/api/orders`,
+  `app/api/loyalty`, `app/api/health` — rotas reais lendo/escrevendo no banco.
+- **Banco local**: SQLite automático (`prisma/dev.db`, schema local em
+  `prisma/schema.local.prisma`).
+- **Banco de produção**: Postgres via `DATABASE_URL` (`prisma/schema.prisma`).
+  Para rodar em Postgres: `npm run db:setup:pg`.
+- **Sessão de convidado**: cookie httpOnly identifica o cliente sem login e já
+  cria a conta de fidelidade.
+- **Carrinho persistente**: adicionar, atualizar quantidade e remover, no banco,
+  com **controle real de estoque** (produto esgotado não entra na sacola).
+- **Checkout**: cria `Order` + `OrderItem`s em transação, **baixa estoque**,
+  salva o endereço no cliente, limpa o carrinho e carimba o Clube da Brasa
+  (a cada 5 selos, 1 recompensa grátis — e dá para resgatar de verdade).
+- **Entrega**: R$ 9,00 — **grátis acima de R$ 50,00** (o total mostrado na
+  sacola é exatamente o que é cobrado no pedido).
+- **Fotos**: 10 produtos com fotos locais + `ImageWithFallback` (skeleton
+  enquanto carrega e placeholder se algo falhar). Nunca depende de link externo.
+- **Cardápio**: 6 coleções funcionais e 10 itens. Categorias filtram de verdade
+  no backend; busca de erros mostra mensagem amigável + botão "Tentar de novo".
+- **PWA**: `manifest.json`, ícones, service worker (instalável, offline para
+  assets já visitados).
+- **Animações**: `SplitReveal` (texto letra a letra), `Hero` (máscara +
+  parallax), `ProductCard` (reveal no scroll) e `SmoothScrollProvider`
+  (Lenis + GSAP).
+
+## Produção (Vercel / Neon)
+
+1. No dashboard da Vercel → Storage → crie um **Postgres** (Neon) e defina
+   `DATABASE_URL` (ou cole a connection string em Settings → Environment Variables).
+2. Faça push do repositório e importe na Vercel (build: `prisma generate && next build`).
+3. Aplique o schema e popule uma vez:
    ```bash
-   git init
-   git add .
-   git commit -m "Fuego Artisan PWA"
-   git branch -M main
-   git remote add origin <seu-repo-git>
-   git push -u origin main
+   npx vercel env pull .env.local
+   npm run db:setup:pg
    ```
+4. Pronto — `https://<app>.vercel.app/api/health` deve responder `{"ok":true}`.
 
-3. **Importe o repositório na Vercel** (vercel.com/new). O build command já está
-   configurado em `package.json` (`prisma generate && next build`) — não precisa
-   mexer em nada.
+## Scripts
 
-4. **Aplique o schema no banco de produção** (uma vez, após o primeiro deploy):
-   ```bash
-   npx vercel env pull .env.local   # baixa a DATABASE_URL de produção
-   npx prisma db push
-   npm run db:seed
-   ```
-
-5. Pronto — acesse a URL gerada pela Vercel. No celular, abra no navegador e use
-   "Adicionar à tela de início" para instalar como PWA.
-
-## Próximos incrementos sugeridos
-
-- Painel admin para gerenciar produtos/pedidos (hoje o seed cobre o catálogo inicial).
-- Autenticação real (NextAuth) se quiser contas de cliente além do cookie de convidado.
-- Integração de pagamento (Stripe/Mercado Pago) na rota `app/api/orders`.
-- Camadas extras da stack pedida (Three.js/R3F para o burger em 3D, WebGL/GLSL para
-  transições) — não entraram nesta primeira entrega para manter o app 100% funcional
-  e leve; a estrutura de componentes já comporta adicioná-las depois sem refatorar o
-  backend.
+| Comando | O que faz |
+| --- | --- |
+| `npm run dev` | Inicia o app (cria banco/cardápio automaticamente na 1ª vez) |
+| `npm run db:setup` | SQLite local: gera client, cria tabelas e popula cardápio |
+| `npm run db:setup:pg` | Postgres: gera client, `db push` e popula cardápio |
+| `npm run db:studio` | Abre o Prisma Studio para inspecionar o banco |
+| `npm run build` | Build de produção (gera Prisma Client) |
